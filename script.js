@@ -1,6 +1,6 @@
-async function getWeather(){
+async function getWeather(cityInput){
 
- const city=document.getElementById("city").value;
+ const city = cityInput || document.getElementById("city").value;
 
  if(city===""){
   alert("Enter city name");
@@ -32,6 +32,9 @@ async function getWeather(){
 
  document.getElementById("weather").style.display="block";
 
+ const sunrise = new Date(data.sys.sunrise*1000).toLocaleTimeString();
+ const sunset = new Date(data.sys.sunset*1000).toLocaleTimeString();
+
  document.getElementById("weather").innerHTML=`
 
  <h2>${data.name}</h2>
@@ -47,13 +50,83 @@ async function getWeather(){
  <p>🌡 Feels Like: ${data.main.feels_like} °C</p>
  <p>📊 Pressure: ${data.main.pressure} hPa</p>
 
+ <div class="sun-card">
+ ☀ Sunrise: ${sunrise} <br>
+ 🌙 Sunset: ${sunset}
+ </div>
+
  <p><small>${now}</small></p>
  `;
 
  getForecast(city);
  getHourly(city);
+ getExtraData(data.coord.lat,data.coord.lon)
+
  changeBackground(data.weather[0].main)
+
 }
+
+/* EXTRA DATA (UV + AQI) */
+
+async function getExtraData(lat,lon){
+
+ const apiKey="5f11a2a8bb4b0b11c3e5cc47f93aecf6";
+
+ const uvURL=`https://api.openweathermap.org/data/2.5/uvi?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+ const aqiURL=`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+
+ const uvRes=await fetch(uvURL)
+ const uvData=await uvRes.json()
+
+ const aqiRes=await fetch(aqiURL)
+ const aqiData=await aqiRes.json()
+
+ const uv = uvData.value
+ const aqi = aqiData.list[0].main.aqi
+
+ document.getElementById("extraData").style.display="block"
+
+ document.getElementById("extraData").innerHTML=`
+
+ <div class="extra-card">
+ 🌞 UV Index: ${uv}
+ </div>
+
+ <div class="extra-card">
+ 🌫 Air Quality Index: ${aqi}
+ </div>
+
+ `
+}
+
+/* AUTO GPS LOCATION */
+
+function detectLocation(){
+
+ if(navigator.geolocation){
+
+ navigator.geolocation.getCurrentPosition(async position=>{
+
+ const lat=position.coords.latitude
+ const lon=position.coords.longitude
+
+ const apiKey="5f11a2a8bb4b0b11c3e5cc47f93aecf6"
+
+ const url=`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
+
+ const res=await fetch(url)
+ const data=await res.json()
+
+ document.getElementById("city").value=data.name
+ getWeather(data.name)
+
+ })
+
+ }
+
+}
+
+/* FORECAST */
 
 async function getForecast(city){
 
@@ -86,6 +159,8 @@ async function getForecast(city){
  document.getElementById("forecastCards").innerHTML=forecastHTML;
  document.getElementById("forecast-container").style.display="block";
 }
+
+/* HOURLY */
 
 async function getHourly(city){
 
@@ -120,27 +195,11 @@ async function getHourly(city){
 
 /* CITY SUGGESTIONS */
 
-
-const cities = [
-"New York",
-"London",
-"Tokyo",
-"Paris",
-"Dubai",
-"Hyderabad",
-"Delhi",
-"Mumbai",
-"Chennai",
-"Bangalore",
-"Kolkata",
-"Singapore",
-"Sydney",
-"Toronto",
-"Los Angeles",
-"San Francisco"
-];
-
-
+const cities=[
+"New York","London","Tokyo","Paris","Dubai","Hyderabad","Delhi",
+"Mumbai","Chennai","Bangalore","Kolkata","Singapore","Sydney",
+"Toronto","Los Angeles","San Francisco"
+]
 
 document.getElementById("city").addEventListener("input",function(){
 
@@ -157,37 +216,56 @@ document.getElementById("city").addEventListener("input",function(){
  filtered.forEach(city=>{
 
  const div=document.createElement("div");
-
  div.classList.add("suggestion-item");
  div.textContent=city;
 
  div.onclick=function(){
  document.getElementById("city").value=city;
  suggestions.innerHTML="";
- getWeather();
+ getWeather(city);
  };
 
  suggestions.appendChild(div);
 
  });
 
-});
-function quickCity(city){
+})
 
- document.getElementById("city").value = city;
- getWeather();
+function quickCity(city){
+ document.getElementById("city").value=city
+ getWeather(city)
+}
+
+/* BACKGROUND */
+
+function changeBackground(weather){
+
+weather = weather.toLowerCase()
+
+if(weather.includes("clear")){
+document.body.style.background="linear-gradient(135deg,#f6d365,#fda085)"
+}
+else if(weather.includes("cloud")){
+document.body.style.background="linear-gradient(135deg,#bdc3c7,#2c3e50)"
+}
+else if(weather.includes("rain")){
+document.body.style.background="linear-gradient(135deg,#4facfe,#00f2fe)"
+startRain()
+}
+else{
+document.body.style.background="linear-gradient(135deg,#4facfe,#00f2fe)"
+}
 
 }
+
 function startRain(){
 
-const rain = document.getElementById("rain-container")
-
+const rain=document.getElementById("rain-container")
 rain.innerHTML=""
 
 for(let i=0;i<80;i++){
 
-const drop = document.createElement("div")
-
+const drop=document.createElement("div")
 drop.classList.add("raindrop")
 
 drop.style.left=Math.random()*100+"vw"
@@ -198,35 +276,5 @@ rain.appendChild(drop)
 }
 
 }
-function changeBackground(weather){
 
-weather = weather.toLowerCase()
-
-if(weather.includes("clear")){
-document.body.style.background =
-"linear-gradient(135deg,#f6d365,#fda085)"
-}
-
-else if(weather.includes("cloud")){
-document.body.style.background =
-"linear-gradient(135deg,#bdc3c7,#2c3e50)"
-}
-
-else if(weather.includes("rain")){
-document.body.style.background =
-"linear-gradient(135deg,#4facfe,#00f2fe)"
-startRain()
-}
-
-else if(weather.includes("snow")){
-document.body.style.background =
-"linear-gradient(135deg,#e6dada,#274046)"
-startSnow()
-}
-
-else{
-document.body.style.background =
-"linear-gradient(135deg,#4facfe,#00f2fe)"
-}
-
-}
+window.onload=detectLocation
